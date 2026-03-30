@@ -1,4 +1,5 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 /**
  * The admin-specific functionality of the plugin.
  *
@@ -17,11 +18,6 @@ class Wp_Hide_Backed_Notices_Admin {
         $this->version = $version;
 
         add_action('admin_menu', array($this, 'add_custom_menu_in_dashboard'));
-        add_shortcode('warning_notices_settings', array($this, 'warning_notices_settings'));
-
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_styles'));
-        add_action('login_enqueue_scripts', array($this, 'enqueue_styles'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
     }
 
     public function add_custom_menu_in_dashboard() {
@@ -37,6 +33,7 @@ class Wp_Hide_Backed_Notices_Admin {
     }
 
     public function warning_notices_settings() {
+        if ( ! current_user_can( 'manage_options' ) ) { return; }
         $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'settings';
 
         if (isset($_POST['save_notice_box']) && check_admin_referer('save_settings_nonce', 'save_settings_nonce_field')) {
@@ -49,10 +46,7 @@ class Wp_Hide_Backed_Notices_Admin {
             echo '<div class="updated"><p>' . esc_html__('Settings Saved.', 'wp-hide-backed-notices') . '</p></div>';
         }
 
-        $posts_from_db = get_option($this->option_name, array());
-        if (is_string($posts_from_db)) {
-            $posts_from_db = maybe_unserialize($posts_from_db);
-        }
+        $posts_from_db = $this->get_options();
         ?>
         <div class="main-wrap setting-top-wrap">
             <div class="tab">
@@ -120,6 +114,17 @@ class Wp_Hide_Backed_Notices_Admin {
         <?php
     }
 
+    private function get_options() {
+        $options = get_option( $this->option_name, array() );
+        if ( ! is_array( $options ) ) {
+            $options = maybe_unserialize( $options );
+        }
+        if ( ! is_array( $options ) ) {
+            $options = array();
+        }
+        return $options;
+    }
+
     private function render_toggle($key, $label, $options) {
         $db_key = str_replace(' ', '_', $key); 
         $is_checked = (in_array($key, $options) || isset($options[$db_key])) ? 'checked' : '';
@@ -152,8 +157,7 @@ class Wp_Hide_Backed_Notices_Admin {
         }
 
         $user_roles = (array) $user->roles;
-        $options = get_option($this->option_name, array());
-        if (is_string($options)) $options = maybe_unserialize($options);
+        $options = $this->get_options();
         
         if (empty($options)) return '';
 
